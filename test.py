@@ -5,7 +5,7 @@ import numpy as np
 from PIL import Image
 from scipy.io import wavfile
 
-BLOCK_SIZE = 256
+BLOCK_SIZE = 64
 assert BLOCK_SIZE % 2 == 0
 
 def make_blocks(data):
@@ -55,18 +55,30 @@ for (line_idx, line) in enumerate(im):
 
 magnitudes = magnitudes * 1_552_737.0
 
+freqs = np.fft.fftfreq(BLOCK_SIZE, 1 / rate)
+
+print(freqs)
+
 print("new results like")
 print("magnitudes[0] = ", magnitudes[0])
 
-freqs = np.fft.fftfreq(BLOCK_SIZE, 1 / rate)
+magnitudes = np.zeros(magnitudes.shape)
+for i in range(len(magnitudes)):
+    magnitudes[i][1] = 1000
 
+print(magnitudes)
 
 num_samples = len(magnitudes)
 final_length = num_samples / rate # final length in seconds
 
+print("FINAL LENTH IS")
+print(final_length)
+
 # i add the "f +" term to spac eit out phase wise
-full_spectrum = np.array([[np.sin(f + (f * t * 2 * np.pi / rate)) for f in freqs] for t in np.linspace(0, final_length, num_samples)])
+full_spectrum = np.array([[np.sin(f + (f * t * 2 * np.pi * rate)) for f in freqs] for t in np.linspace(0, final_length, num_samples)])
 result = np.zeros(im.shape[0] * int(BLOCK_SIZE / 2)).astype(np.float32)
+
+print(full_spectrum[:,1])
 
 print("setting this many")
 
