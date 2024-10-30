@@ -13,11 +13,14 @@ import matplotlib.pyplot as plt
 RATE = 44_100
 FREQ_STEP = 100
 
-freqs = list(range(1, RATE, FREQ_STEP))
+freqs = list(range(1, RATE // 2, FREQ_STEP))
 
 WINDOW_SIZE = 2048
+WINDOW_STEP = 1024
 
 rate, data = wavfile.read(sys.argv[1])
+print(rate)
+print(len(data))
 
 # generate windows
 windows = []
@@ -25,6 +28,7 @@ for w_start in range(0, len(data), WINDOW_SIZE):
     w_end = w_start + WINDOW_SIZE
     window = data[w_start: w_end]
     if len(window) < WINDOW_SIZE:
+        print("padding!")
         window = np.append(window, np.repeat(0, WINDOW_SIZE - len(window)))
     windows.append(window)
 
