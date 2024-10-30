@@ -1,61 +1,47 @@
+# analyze.py
+# convert .wav file into spectrogram
+
 import sys
-from tqdm import tqdm
 import numpy as np
 from scipy.io import wavfile
 import matplotlib.pyplot as plt
 
+#from PIL import Image
 
-BLOCK_SIZE = 1024
-MIN_PERIOD = 1
+RATE = 44_100
+FREQ_STEP = 100
 
+freqs = list(range(1, RATE, FREQ_STEP))
 
-window = np.hamming(BLOCK_SIZE * 3)
+WINDOW_SIZE = 2048
 
-rate, data = wavfile.read("440.wav")
+rate, data = wavfile.read(sys.argv[1])
 
-chunks = []
+# generate windows
+windows = []
+for w_start in range(0, len(data), WINDOW_SIZE):
+    w_end = w_start + WINDOW_SIZE
+    window = data[w_start: w_end]
+    if len(window) < WINDOW_SIZE:
+        window = np.append(window, np.repeat(0, WINDOW_SIZE - len(window)))
+    windows.append(window)
 
-for i in range(0, len(data), BLOCK_SIZE):
-    chunks.append(data[i : i  + BLOCK_SIZE])
+# test windows, 1 per frequency (with 0 and 90deg shifted options)
+test_windows = []
+t = np.linspace(0, WINDOW_SIZE / RATE, WINDOW_SIZE)
+for freq in freqs:
+    test_windows.append((np.sin(2 * np.pi * freq * t),
+                         np.cos(2 * np.pi * freq * t)))
+    
 
-chunks = chunks[: -1]
+spectra = []
+for window in windows:
+    spectrum = []
+    for (tw_sin, tw_cos) in test_windows:
+        cdot, sdot = np.dot(tw_cos, window), np.dot(tw_sin, window)
+        spectrum.append(max((abs(cdot), abs(sdot))))
+    spectra.append(spectrum)
 
-periods = np.arange(MIN_PERIOD, BLOCK_SIZE // 2) / rate
-
-t = np.linspace(0, 1, BLOCK_SIZE)
-
-
-triple_t = np.linspace(0, 3, BLOCK_SIZE * 3)
-components = [np.sin(2 * np.pi * triple_t / p) for p in periods]
-
-magnitudes = np.zeros((len(chunks), len(periods)))
-
-for chunk_idx, chunk in tqdm(list(enumerate(chunks[1:-1]))):
-    for component_idx, component in enumerate(components):
-        full_chunk = np.append(np.append(chunks[chunk_idx - 1], chunk), chunks[chunk_idx + 1])
-        total = 0
-
-        
-        for i in range(1, 256, 31): # must be >0 bc of list slicing lol
-            total += abs(np.dot(component[i:], full_chunk[:-i]))
-        magnitudes[chunk_idx][component_idx] = abs(total / 32)
-
-magnitudes /= max(magnitudes.flatten())
-        
-print(magnitudes)
-
-print(components[0])
-
-#plt.plot(components[0])
-#plt.plot(components[1])
-#plt.plot(components[2])
-
-#plt.plot(magnitudes[:,
-#plt.show()
-plt.imshow(magnitudes, cmap='gray')
+plt.imshow(spectra)
 plt.show()
 
-print("periods range from")
-print(rate * min(periods))
-print(rate * max(periods))
-#p sample / (rate samples / second)) 
