@@ -1,7 +1,7 @@
-# analyze.py
-# convert .wav file into spectrogram
+# encode.py
+# encode .wav file into frequency spectrogram
 
-import sys
+import click
 import numpy as np
 from PIL import Image
 
@@ -18,45 +18,46 @@ freqs = list(range(1, RATE // 2, FREQ_STEP))
 WINDOW_SIZE = 2048
 WINDOW_STEP = 1024
 
-rate, data = wavfile.read(sys.argv[1])
-print(rate)
-print(len(data))
+@click.command()
+@click.option("-i", "--in-file", required=True, help="Input mono WAV file (44,100Hz).")
+@click.option("-o", "--out-file", required=True, help="Output BMP image file.")
+def encode(in_file, out_file):
 
-# generate windows
-windows = []
-for w_start in range(0, len(data), WINDOW_SIZE):
-    w_end = w_start + WINDOW_SIZE
-    window = data[w_start: w_end]
-    if len(window) < WINDOW_SIZE:
-        print("padding!")
-        window = np.append(window, np.repeat(0, WINDOW_SIZE - len(window)))
-    windows.append(window)
+    rate, data = wavfile.read(in_file)
 
-# test windows, 1 per frequency (with 0 and 90deg shifted options)
-test_windows = []
-t = np.linspace(0, WINDOW_SIZE / RATE, WINDOW_SIZE)
-for freq in freqs:
-    test_windows.append((np.sin(2 * np.pi * freq * t),
-                         np.cos(2 * np.pi * freq * t)))    
+    # generate windows
+    windows = []
+    for w_start in range(0, len(data), WINDOW_SIZE):
+        w_end = w_start + WINDOW_SIZE
+        window = data[w_start: w_end]
+        if len(window) < WINDOW_SIZE:
+            window = np.append(window, np.repeat(0, WINDOW_SIZE - len(window)))
+        windows.append(window)
 
-spectra = []
-for window in windows:
-    spectrum = []
-    for (tw_sin, tw_cos) in test_windows:
-        cdot, sdot = np.dot(tw_cos, window), np.dot(tw_sin, window)
-        spectrum.append(max((abs(cdot), abs(sdot))))
-    spectra.append(spectrum)
+    # test windows, 1 per frequency (with 0 and 90deg shifted options)
+    test_windows = []
+    t = np.linspace(0, WINDOW_SIZE / RATE, WINDOW_SIZE)
+    for freq in freqs:
+        test_windows.append((np.sin(2 * np.pi * freq * t),
+                             np.cos(2 * np.pi * freq * t)))    
+
+    spectra = []
+    for window in windows:
+        spectrum = []
+        for (tw_sin, tw_cos) in test_windows:
+            cdot, sdot = np.dot(tw_cos, window), np.dot(tw_sin, window)
+            spectrum.append(max((abs(cdot), abs(sdot))))
+        spectra.append(spectrum)
 
 
-spectra = np.array(spectra).T
+    spectra = np.array(spectra).T
 
-# normalize spectra to export as 0-255
-spectra = spectra * 255 / max(spectra.flatten())
-spectra = np.rint(spectra).astype(np.uint8)
-print(spectra)
+    # normalize spectra to export as 0-255
+    spectra = spectra * 255 / max(spectra.flatten())
+    spectra = np.rint(spectra).astype(np.uint8)
 
-plt.imshow(spectra)
-plt.show()
-im = Image.fromarray(spectra, mode="L")
-im.show()
-im.save("out.bmp")
+    im = Image.fromarray(spectra, mode="L")
+    im.save(out_file)
+
+if __name__ == "__main__":
+    encode()
