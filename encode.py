@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 #from PIL import Image
 
 RATE = 44_100
-FREQ_STEP = 100
+FREQ_STEP = 20
 
 freqs = list(range(1, RATE // 2, FREQ_STEP))
 
@@ -27,7 +27,7 @@ def encode(in_file, out_file):
 
     # generate windows
     windows = []
-    for w_start in range(0, len(data), WINDOW_SIZE):
+    for w_start in range(0, len(data), WINDOW_STEP):
         w_end = w_start + WINDOW_SIZE
         window = data[w_start: w_end]
         if len(window) < WINDOW_SIZE:
@@ -46,7 +46,7 @@ def encode(in_file, out_file):
         spectrum = []
         for (tw_sin, tw_cos) in test_windows:
             cdot, sdot = np.dot(tw_cos, window), np.dot(tw_sin, window)
-            spectrum.append(max((abs(cdot), abs(sdot))))
+            spectrum.append((abs(cdot) + abs(sdot)))
         spectra.append(spectrum)
 
 

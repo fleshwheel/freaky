@@ -6,8 +6,9 @@ from scipy.io import wavfile
 
 
 RATE = 44_100
-WINDOW_SIZE = 2048
-FREQ_STEP = 100
+# aka WINDOW_STEP
+WINDOW_SIZE = 1024
+FREQ_STEP = 20
 
 
 @click.command()
