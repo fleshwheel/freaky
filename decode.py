@@ -10,7 +10,7 @@ from scipy.io import wavfile
 
 RATE = 44_100
 # aka WINDOW_STEP
-WINDOW_SIZE = 4096
+WINDOW_SIZE = 1024
 FREQ_STEP = 20
 
 
@@ -30,20 +30,22 @@ def decode(in_file, out_file):
 
     phases = np.random.random(len(freqs)) * 2 * np.pi
     for i, (freq, phase) in enumerate(zip(freqs, phases)):
-        components[i] = np.sin(2 * np.pi * freq * T + phase)
+        components[i] = np.sin(2 * np.pi * freq * T)
 
     chunks = []
     for window_idx in range(spectra.shape[0]):
         # turn spectrum sample into a column vector
         spec_col = np.array(spectra[window_idx], ndmin=2).T
         chunk = np.tile(spec_col, WINDOW_SIZE)
+
         chunks.append(chunk)
         
     coeffs = np.hstack(chunks)
-        
-    result = coeffs * components
 
-    result = sum(components)
+   
+    result = sum(np.multiply(coeffs, components))
+
+    
     result /= max(result.flatten())
 
     wavfile.write(out_file, RATE, result)
