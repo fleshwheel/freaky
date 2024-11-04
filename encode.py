@@ -15,9 +15,9 @@ import matplotlib.pyplot as plt
 RATE = 44_100
 FREQ_STEP = 20
 
-freqs = list(range(50, RATE // 2, FREQ_STEP))
+freqs = list(range(20, RATE // 2, FREQ_STEP))
 
-WINDOW_SIZE = 2048
+WINDOW_SIZE = 4096
 WINDOW_STEP = 1024
 
 @click.command()
@@ -42,28 +42,17 @@ def encode(in_file, out_file):
     test_sin = np.zeros((len(freqs), WINDOW_SIZE))
     test_cos = np.zeros((len(freqs), WINDOW_SIZE))
     t = np.linspace(0, WINDOW_SIZE / RATE, WINDOW_SIZE)
-    for freq_idx, freq in enumerate(freqs):
-        test_sin[freq_idx] = np.sin(2 * np.pi * freq * t)
-        test_cos[freq_idx] = np.cos(2 * np.pi * freq * t)
 
+    for freq_idx, freq in enumerate(freqs):
+        test_sin[freq_idx] = np.sin(2.0 * np.pi * freq * t)
+        test_cos[freq_idx] = np.cos(2.0 * np.pi * freq * t)
         
         period = (1.0 / freq) * RATE
-        
-#        print(period)
-        period = int(period)
+        tail = int(WINDOW_SIZE % period)
 
-#        print(f"freq is {freq}")
-
-        tail = WINDOW_SIZE % period
-
-        if tail > 2:
-            print(tail)
-
-#        print(tail)
-        
         for j in range(0, tail):
-            test_sin[-j] = 0
-            test_cos[-j] = 0
+            test_sin[freq_idx][-j] = 0
+            test_cos[freq_idx][-j] = 0
 
     spectra = []
     for window in tqdm(windows):

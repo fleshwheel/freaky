@@ -2,6 +2,7 @@ import click
 from tqdm import tqdm
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from PIL import Image
 from scipy.io import wavfile
@@ -9,7 +10,7 @@ from scipy.io import wavfile
 
 RATE = 44_100
 # aka WINDOW_STEP
-WINDOW_SIZE = 1024
+WINDOW_SIZE = 4096
 FREQ_STEP = 20
 
 
@@ -23,20 +24,24 @@ def decode(in_file, out_file):
 
     T = np.linspace(0, length / RATE, spectra.shape[0] * WINDOW_SIZE)
 
-    freqs = list(range(1, RATE // 2, FREQ_STEP))
+    freqs = list(range(20, RATE // 2, FREQ_STEP))
 
-    components = []
+    components = np.zeros((len(freqs), length))
 
     phases = np.random.random(len(freqs)) * 2 * np.pi
-    for freq, phase in zip(freqs, phases):
-        components.append(np.sin(2 * np.pi * freq * T + phase))
+    for i, (freq, phase) in enumerate(zip(freqs, phases)):
+        components[i] = np.sin(2 * np.pi * freq * T + phase)
 
-#    spectra = np.exp(spectra)
+    chunks = []
+    for window_idx in range(spectra.shape[0]):
+        # turn spectrum sample into a column vector
+        spec_col = np.array(spectra[window_idx], ndmin=2).T
+        chunk = np.tile(spec_col, WINDOW_SIZE)
+        chunks.append(chunk)
         
-    for spec_idx, spectrum in tqdm(list(enumerate(spectra))):
-        for freq_idx, freq in enumerate(freqs):
-            for i in range(WINDOW_SIZE):
-                components[freq_idx][spec_idx * WINDOW_SIZE + i] *= spectrum[freq_idx]
+    coeffs = np.hstack(chunks)
+        
+    result = coeffs * components
 
     result = sum(components)
     result /= max(result.flatten())
