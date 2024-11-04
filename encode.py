@@ -2,74 +2,82 @@
 # encode.py
 # encode .wav file into frequency spectrogram
 
+# cli
 import click
+
+# analysis
 import numpy as np
-from PIL import Image
-from tqdm import tqdm
+import scipy
+from scipy import signal
+from numba import jit
 
+# i/o
 from scipy.io import wavfile
-
-RATE = 44_100
-FREQ_STEP = 10
-
-freqs = list(range(1, RATE // 2, FREQ_STEP))
-
-WINDOW_SIZE = 8192
-WINDOW_STEP = 512
+from PIL import Image
 
 @click.command()
-@click.option("-i", "--in-file", required=True, help="Input mono WAV file (44,100Hz).")
-@click.option("-o", "--out-file", required=True, help="Output BMP image file.")
-def encode(in_file, out_file):
+@click.argument("in_file", required=True)
+@click.argument("out_file", required=True)
+@click.option("-r", "--resample-factor", default=1, help="Resample input data before analysis.")
+@click.option("-f", "--freq-bins", default=1024, help="Number of frequency bins.")
+@click.option("-w", "--window-size", default=4096, help="Size of analysis windows.")
+@click.option("-s", "--window-step", default=512, help="Space between analysis windows.")
+def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, window_step):
+    file_rate, data = wavfile.read(in_file)
+    assert file_rate == 44100
+    data = signal.resample(data, len(data) * resample_factor)
+    spectra = encode(file_rate * resample_factor, data, freq_bins, window_size, window_step)
+    im = Image.fromarray(spectra, mode="L")
+    im.save(out_file)
 
-    rate, data = wavfile.read(in_file)
-
+@jit
+def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
+    freqs = np.linspace(1, rate // 2, freq_bins).astype(np.uint)
+    
     # generate windows
     # with centers spaced WINDOW_STEP apart
     # each extending out WINDOW_SIZE / 2 in both directions
     # and tapered with a hamming window
-    windows = []
-    taper = np.hamming(WINDOW_SIZE)
-    for w_start in range(0, len(data) - WINDOW_SIZE, WINDOW_STEP):
-        w_end = w_start + WINDOW_SIZE
-        window = data[w_start: w_end]
-        windows.append(window)
+    window_starts = np.arange(0, len(data) - window_size, window_step)
+    
+    windows = np.zeros((len(window_starts), window_size))
+    taper = np.hamming(window_size)
+    for w_idx in range(len(windows)):
+        w_start = window_starts[w_idx]
+        w_end = w_start + window_size
+        windows[w_idx] = data[w_start: w_end]
 
     # test windows, 1 per frequency (with 0 and 90deg shifted options)
-    test_sin = np.zeros((len(freqs), WINDOW_SIZE))
-    test_cos = np.zeros((len(freqs), WINDOW_SIZE))
-    t = np.linspace(0, WINDOW_SIZE / RATE, WINDOW_SIZE)
+    test_sin = np.zeros((len(freqs), window_size))
+    test_cos = np.zeros((len(freqs), window_size))
+    t = np.linspace(0, window_size / rate, window_size)
 
     for freq_idx, freq in enumerate(freqs):
         test_sin[freq_idx] = np.sin(2.0 * np.pi * freq * t)
         test_cos[freq_idx] = np.cos(2.0 * np.pi * freq * t)
         
-        period = (1.0 / freq) * RATE
-        tail = int(WINDOW_SIZE % period)
+        period = (1.0 / freq) * rate
+        tail = int(window_size % period)
 
         for j in range(0, tail):
             test_sin[freq_idx][-j] = 0
             test_cos[freq_idx][-j] = 0
 
-    spectra = []
-    for window in tqdm(windows):
-        spectrum = []
-
-        magnitude_product = np.linalg.norm(test_sin) * np.linalg.norm(test_cos)
+    spectra = np.zeros((len(windows), freq_bins))
+    for window_idx in range(len(windows)):
+        window = windows[window_idx]
+        magnitude_product = 1#np.linalg.norm(test_sin) * np.linalg.norm(test_cos)
         products_sin = np.sum(np.multiply(test_sin, window) * taper, axis=1) / magnitude_product
         products_cos = np.sum(np.multiply(test_cos, window) * taper, axis=1) / magnitude_product
-
-        spectrum = np.sqrt(products_sin ** 2 + products_cos ** 2)
-        spectra.append(spectrum)
-
-    spectra = np.array(spectra).T
+        spectra[window_idx] = np.sqrt(products_sin ** 2 + products_cos ** 2)
+        
+    spectra = spectra.T
 
     # normalize spectra to export as 0-255
     spectra = spectra * 255 / max(spectra.flatten())
     spectra = np.rint(spectra).astype(np.uint8)
 
-    im = Image.fromarray(spectra, mode="L")
-    im.save(out_file)
+    return spectra
 
 if __name__ == "__main__":
-    encode()
+    encode_wrapper()
