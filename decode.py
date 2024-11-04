@@ -32,10 +32,11 @@ def decode(in_file, out_file):
         components[i] = np.sin(2 * np.pi * freq * T + phase)
 
     chunks = []
+    last_spectrum = spectra[0]
     for window_idx in tqdm(range(spectra.shape[0])):
-        # turn spectrum sample into a column vector
+
         spec_col = np.array(spectra[window_idx], ndmin=2).T
-        chunk = np.tile(spec_col, WINDOW_SIZE)
+        chunk = np.linspace(last_spectrum, spectra[window_idx], WINDOW_SIZE).T
         chunks.append(chunk)
         
     coeffs = np.hstack(chunks)
