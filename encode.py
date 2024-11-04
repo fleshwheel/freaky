@@ -8,17 +8,14 @@ from PIL import Image
 from tqdm import tqdm
 
 from scipy.io import wavfile
-import matplotlib.pyplot as plt
-
-#from PIL import Image
 
 RATE = 44_100
-FREQ_STEP = 20
+FREQ_STEP = 10
 
-freqs = list(range(20, RATE // 2, FREQ_STEP))
+freqs = list(range(1, RATE // 2, FREQ_STEP))
 
-WINDOW_SIZE = 4096
-WINDOW_STEP = 1024
+WINDOW_SIZE = 8192
+WINDOW_STEP = 512
 
 @click.command()
 @click.option("-i", "--in-file", required=True, help="Input mono WAV file (44,100Hz).")
@@ -28,15 +25,15 @@ def encode(in_file, out_file):
     rate, data = wavfile.read(in_file)
 
     # generate windows
+    # with centers spaced WINDOW_STEP apart
+    # each extending out WINDOW_SIZE / 2 in both directions
+    # and tapered with a hamming window
     windows = []
-    for w_start in range(0, len(data), WINDOW_STEP):
+    taper = np.hamming(WINDOW_SIZE)
+    for w_start in range(0, len(data) - WINDOW_SIZE, WINDOW_STEP):
         w_end = w_start + WINDOW_SIZE
         window = data[w_start: w_end]
-        # TODO: decide about this
-        if len(window) < WINDOW_SIZE:
-            window = np.append(window, np.repeat(0, WINDOW_SIZE - len(window)))
-        else:
-            windows.append(window)
+        windows.append(window)
 
     # test windows, 1 per frequency (with 0 and 90deg shifted options)
     test_sin = np.zeros((len(freqs), WINDOW_SIZE))
@@ -59,19 +56,14 @@ def encode(in_file, out_file):
         spectrum = []
 
         magnitude_product = np.linalg.norm(test_sin) * np.linalg.norm(test_cos)
-        products_sin = np.sum(np.multiply(test_sin, window), axis=1) / magnitude_product
-        products_cos = np.sum(np.multiply(test_cos, window), axis=1) / magnitude_product
+        products_sin = np.sum(np.multiply(test_sin, window) * taper, axis=1) / magnitude_product
+        products_cos = np.sum(np.multiply(test_cos, window) * taper, axis=1) / magnitude_product
 
         spectrum = np.sqrt(products_sin ** 2 + products_cos ** 2)
         spectra.append(spectrum)
 
     spectra = np.array(spectra).T
 
-    # experimental scaling
-#    spectra = np.exp(spectra)
-    
-    print(spectra)
-    
     # normalize spectra to export as 0-255
     spectra = spectra * 255 / max(spectra.flatten())
     spectra = np.rint(spectra).astype(np.uint8)
