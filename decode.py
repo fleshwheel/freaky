@@ -1,6 +1,8 @@
 import click
+from tqdm import tqdm
 
 import numpy as np
+
 from PIL import Image
 from scipy.io import wavfile
 
@@ -25,10 +27,13 @@ def decode(in_file, out_file):
 
     components = []
 
-    for freq in freqs:
-        components.append(np.sin(2 * np.pi * freq * T + np.random.random()))
+    phases = np.random.random(len(freqs)) * 2 * np.pi
+    for freq, phase in zip(freqs, phases):
+        components.append(np.sin(2 * np.pi * freq * T + phase))
 
-    for spec_idx, spectrum in enumerate(spectra):
+#    spectra = np.exp(spectra)
+        
+    for spec_idx, spectrum in tqdm(list(enumerate(spectra))):
         for freq_idx, freq in enumerate(freqs):
             for i in range(WINDOW_SIZE):
                 components[freq_idx][spec_idx * WINDOW_SIZE + i] *= spectrum[freq_idx]

@@ -1,9 +1,11 @@
+
 # encode.py
 # encode .wav file into frequency spectrogram
 
 import click
 import numpy as np
 from PIL import Image
+from tqdm import tqdm
 
 from scipy.io import wavfile
 import matplotlib.pyplot as plt
@@ -13,7 +15,7 @@ import matplotlib.pyplot as plt
 RATE = 44_100
 FREQ_STEP = 20
 
-freqs = list(range(1, RATE // 2, FREQ_STEP))
+freqs = list(range(50, RATE // 2, FREQ_STEP))
 
 WINDOW_SIZE = 2048
 WINDOW_STEP = 1024
@@ -30,28 +32,57 @@ def encode(in_file, out_file):
     for w_start in range(0, len(data), WINDOW_STEP):
         w_end = w_start + WINDOW_SIZE
         window = data[w_start: w_end]
+        # TODO: decide about this
         if len(window) < WINDOW_SIZE:
             window = np.append(window, np.repeat(0, WINDOW_SIZE - len(window)))
-        windows.append(window)
+        else:
+            windows.append(window)
 
     # test windows, 1 per frequency (with 0 and 90deg shifted options)
-    test_windows = []
+    test_sin = np.zeros((len(freqs), WINDOW_SIZE))
+    test_cos = np.zeros((len(freqs), WINDOW_SIZE))
     t = np.linspace(0, WINDOW_SIZE / RATE, WINDOW_SIZE)
-    for freq in freqs:
-        test_windows.append((np.sin(2 * np.pi * freq * t),
-                             np.cos(2 * np.pi * freq * t)))    
+    for freq_idx, freq in enumerate(freqs):
+        test_sin[freq_idx] = np.sin(2 * np.pi * freq * t)
+        test_cos[freq_idx] = np.cos(2 * np.pi * freq * t)
+
+        
+        period = (1.0 / freq) * RATE
+        
+#        print(period)
+        period = int(period)
+
+#        print(f"freq is {freq}")
+
+        tail = WINDOW_SIZE % period
+
+        if tail > 2:
+            print(tail)
+
+#        print(tail)
+        
+        for j in range(0, tail):
+            test_sin[-j] = 0
+            test_cos[-j] = 0
 
     spectra = []
-    for window in windows:
+    for window in tqdm(windows):
         spectrum = []
-        for (tw_sin, tw_cos) in test_windows:
-            cdot, sdot = np.dot(tw_cos, window), np.dot(tw_sin, window)
-            spectrum.append((abs(cdot) + abs(sdot)))
-        spectra.append(spectrum)
 
+        magnitude_product = np.linalg.norm(test_sin) * np.linalg.norm(test_cos)
+        products_sin = np.sum(np.multiply(test_sin, window), axis=1) / magnitude_product
+        products_cos = np.sum(np.multiply(test_cos, window), axis=1) / magnitude_product
+
+        spectrum = np.sqrt(products_sin ** 2 + products_cos ** 2)
+        spectra.append(spectrum)
 
     spectra = np.array(spectra).T
 
+    # experimental scaling
+#    spectra = np.exp(spectra)
+    
+    print(spectra)
+    
     # normalize spectra to export as 0-255
     spectra = spectra * 255 / max(spectra.flatten())
     spectra = np.rint(spectra).astype(np.uint8)
