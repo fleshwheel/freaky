@@ -8,7 +8,7 @@ import click
 import numpy as np
 import scipy
 from scipy import signal
-from numba import jit
+from numba import jit, prange
 
 # i/o
 from scipy.io import wavfile
@@ -19,7 +19,7 @@ from PIL import Image
 @click.argument("out_file", required=True)
 @click.option("-f", "--resample-factor", default=1, help="Resample input data before analysis.")
 @click.option("-b", "--freq-bins", default=512, help="Number of frequency bins.")
-@click.option("-w", "--window-size", default=4096, help="Size of analysis windows.")
+@click.option("-w", "--window-size", default=2048, help="Size of analysis windows.")
 @click.option("-s", "--window-step", default=64, help="Space between analysis windows.")
 def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, window_step):
     file_rate, data = wavfile.read(in_file)
@@ -29,7 +29,7 @@ def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, w
     im = Image.fromarray(spectra, mode="L")
     im.save(out_file)
 
-@jit
+@jit(nopython=True, parallel=True, nogil=True)
 def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
     freqs = np.linspace(0, rate // 2, freq_bins).astype(np.uint)
     
@@ -41,7 +41,7 @@ def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
 
     windows = np.zeros((len(window_starts), window_size))
     taper = np.hamming(window_size)
-    for w_idx in range(len(windows)):
+    for w_idx in prange(len(windows)):
         w_start = window_starts[w_idx]
         w_end = w_start + window_size
         windows[w_idx] = data[w_start: w_end]
@@ -69,7 +69,7 @@ def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
             test_sin[freq_idx][-j] = 0
             test_cos[freq_idx][-j] = 0
 
-
+    print("dot")
     w_T = windows.T
     products_sin = np.dot(test_sin, w_T)
     products_cos = np.dot(test_cos, w_T)
