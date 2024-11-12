@@ -21,7 +21,7 @@ from scipy.io import wavfile
 @click.argument("out_file", required=True)
 @click.option("-r", "--sample-rate", default=44100, help="Sample rate of output audio WAV file.")
 @click.option("-f", "--resample-factor", default=1, help="Resample input data before analysis.")
-@click.option("-w", "--window-length", default=512, help="Width of analysis windows.")
+@click.option("-w", "--window-length", default=64, help="Width of analysis windows.")
 def decode_wrapper(in_file, out_file, sample_rate, resample_factor, window_length):
     spectra = np.asarray(Image.open(in_file)).T.astype(np.float64) / 255
     result = decode(spectra, sample_rate * resample_factor, window_length)
@@ -30,7 +30,7 @@ def decode_wrapper(in_file, out_file, sample_rate, resample_factor, window_lengt
 
 def decode(spectra, sample_rate, window_length):
     
-    freqs = np.linspace(1, sample_rate // 2, spectra.shape[1]).astype(np.uint)
+    freqs = np.linspace(0, sample_rate // 2, spectra.shape[1]).astype(np.uint)
     
 #    spectra = spectra * spectra
 

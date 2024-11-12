@@ -1,4 +1,3 @@
-
 # encode.py
 # encode .wav file into frequency spectrogram
 
@@ -18,10 +17,10 @@ from PIL import Image
 @click.command()
 @click.argument("in_file", required=True)
 @click.argument("out_file", required=True)
-@click.option("-r", "--resample-factor", default=1, help="Resample input data before analysis.")
-@click.option("-f", "--freq-bins", default=1024, help="Number of frequency bins.")
+@click.option("-f", "--resample-factor", default=1, help="Resample input data before analysis.")
+@click.option("-b", "--freq-bins", default=512, help="Number of frequency bins.")
 @click.option("-w", "--window-size", default=4096, help="Size of analysis windows.")
-@click.option("-s", "--window-step", default=512, help="Space between analysis windows.")
+@click.option("-s", "--window-step", default=64, help="Space between analysis windows.")
 def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, window_step):
     file_rate, data = wavfile.read(in_file)
     assert file_rate == 44100
@@ -32,14 +31,14 @@ def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, w
 
 @jit
 def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
-    freqs = np.linspace(1, rate // 2, freq_bins).astype(np.uint)
+    freqs = np.linspace(0, rate // 2, freq_bins).astype(np.uint)
     
     # generate windows
     # with centers spaced WINDOW_STEP apart
     # each extending out WINDOW_SIZE / 2 in both directions
     # and tapered with a hamming window
     window_starts = np.arange(0, len(data) - window_size, window_step)
-    
+
     windows = np.zeros((len(window_starts), window_size))
     taper = np.hamming(window_size)
     for w_idx in range(len(windows)):
@@ -51,28 +50,33 @@ def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
     test_sin = np.zeros((len(freqs), window_size))
     test_cos = np.zeros((len(freqs), window_size))
     t = np.linspace(0, window_size / rate, window_size)
+    #    phases = np.random.random((len(freqs), 2)) * 2 * np.pi
 
     for freq_idx, freq in enumerate(freqs):
-        test_sin[freq_idx] = np.sin(2.0 * np.pi * freq * t)
-        test_cos[freq_idx] = np.cos(2.0 * np.pi * freq * t)
-        
-        period = (1.0 / freq) * rate
-        tail = int(window_size % period)
+        test_sin[freq_idx] = 2 * freq * np.sin(2.0 * np.pi * freq * t) * taper
+        test_cos[freq_idx] = 2 * freq * np.cos(2.0 * np.pi * freq * t) * taper
 
-        for j in range(0, tail):
+        test_sin[freq_idx] /= window_size
+        test_cos[freq_idx] /= window_size
+        
+        if freq == 0:
+            tail = 0
+        else:
+            period = (1.0 / freq) * rate
+            tail = int(window_size % period)
+
+        for j in np.arange(0, tail):
             test_sin[freq_idx][-j] = 0
             test_cos[freq_idx][-j] = 0
 
-    spectra = np.zeros((len(windows), freq_bins))
-    for window_idx in range(len(windows)):
-        window = windows[window_idx]
-        magnitude_product = 1#np.linalg.norm(test_sin) * np.linalg.norm(test_cos)
-        products_sin = np.sum(np.multiply(test_sin, window) * taper, axis=1) / magnitude_product
-        products_cos = np.sum(np.multiply(test_cos, window) * taper, axis=1) / magnitude_product
-        spectra[window_idx] = np.sqrt(products_sin ** 2 + products_cos ** 2)
-        
-    spectra = spectra.T
 
+    w_T = windows.T
+    products_sin = np.dot(test_sin, w_T)
+    products_cos = np.dot(test_cos, w_T)
+
+    print("finalizing spectra...")
+    spectra = np.sqrt(products_sin ** 2 + products_cos ** 2)
+    
     # normalize spectra to export as 0-255
     spectra = spectra * 255 / max(spectra.flatten())
     spectra = np.rint(spectra).astype(np.uint8)
