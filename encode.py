@@ -22,8 +22,8 @@ FREQ_MAX = 15_000
 @click.argument("out_file", required=True)
 @click.option("-f", "--resample-factor", default=1, help="Resample input data before analysis.")
 @click.option("-b", "--freq-bins", default=2048, help="Number of frequency bins.")
-@click.option("-w", "--window-size", default=1024, help="Size of analysis windows.")
-@click.option("-s", "--window-step", default=128, help="Space between analysis windows.")
+@click.option("-w", "--window-size", default=4096, help="Size of analysis windows.")
+@click.option("-s", "--window-step", default=64, help="Space between analysis windows.")
 def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, window_step):
     file_rate, data = wavfile.read(in_file)
     assert file_rate == 44100
@@ -34,7 +34,11 @@ def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, w
 
 @jit(nopython=True, parallel=True, nogil=True)
 def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
-    freqs = (FREQ_MAX * np.linspace(0, 1, freq_bins)).astype(np.uint)
+    freqs = (FREQ_MAX * np.linspace(0, 1, freq_bins) ** 2)
+
+    #freqs = np.logspace(0, np.log10(FREQ_MAX), freq_bins) #.astype(np.uint)
+    #print(freqs[:500])
+
     
     # generate windows
     # with centers spaced WINDOW_STEP apart
