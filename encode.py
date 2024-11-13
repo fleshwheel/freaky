@@ -14,13 +14,16 @@ from numba import jit, prange
 from scipy.io import wavfile
 from PIL import Image
 
+FREQ_MAX = 15_000
+
+
 @click.command()
 @click.argument("in_file", required=True)
 @click.argument("out_file", required=True)
 @click.option("-f", "--resample-factor", default=1, help="Resample input data before analysis.")
-@click.option("-b", "--freq-bins", default=512, help="Number of frequency bins.")
-@click.option("-w", "--window-size", default=2048, help="Size of analysis windows.")
-@click.option("-s", "--window-step", default=64, help="Space between analysis windows.")
+@click.option("-b", "--freq-bins", default=2048, help="Number of frequency bins.")
+@click.option("-w", "--window-size", default=1024, help="Size of analysis windows.")
+@click.option("-s", "--window-step", default=128, help="Space between analysis windows.")
 def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, window_step):
     file_rate, data = wavfile.read(in_file)
     assert file_rate == 44100
@@ -31,7 +34,7 @@ def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, w
 
 @jit(nopython=True, parallel=True, nogil=True)
 def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
-    freqs = np.linspace(0, rate // 2, freq_bins).astype(np.uint)
+    freqs = (FREQ_MAX * np.linspace(0, 1, freq_bins)).astype(np.uint)
     
     # generate windows
     # with centers spaced WINDOW_STEP apart
@@ -52,7 +55,8 @@ def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
     t = np.linspace(0, window_size / rate, window_size)
     #    phases = np.random.random((len(freqs), 2)) * 2 * np.pi
 
-    for freq_idx, freq in enumerate(freqs):
+    for freq_idx in prange(len(freqs)):
+        freq = freqs[freq_idx]
         test_sin[freq_idx] = 2 * freq * np.sin(2.0 * np.pi * freq * t) * taper
         test_cos[freq_idx] = 2 * freq * np.cos(2.0 * np.pi * freq * t) * taper
 
@@ -65,7 +69,7 @@ def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
             period = (1.0 / freq) * rate
             tail = int(window_size % period)
 
-        for j in np.arange(0, tail):
+        for j in prange(0, tail):
             test_sin[freq_idx][-j] = 0
             test_cos[freq_idx][-j] = 0
 
