@@ -10,29 +10,31 @@ from PIL import Image
 from scipy.signal import resample
 from scipy.io import wavfile
 
-#RESAMPLE = 2
-#SAMPLE_RATE = 44_100 * RESAMPLE
-#WINDOW_SIZE = 256
-#FREQ_MIN = 1
 #FREQ_MAX = SAMPLE_RATE / 2
-FREQ_MAX = 15_000
+FREQ_MAX = 20_000
 
 @click.command()
 @click.argument("in_file", required=True)
 @click.argument("out_file", required=True)
 @click.option("-r", "--sample-rate", default=44100, help="Sample rate of output audio WAV file.")
 @click.option("-f", "--resample-factor", default=1, help="Resample input data before analysis.")
-@click.option("-w", "--window-length", default=64, help="Width of analysis windows.")
+@click.option("-w", "--window-length", default=64, help="Space between centers of consecutive analysis windows.")
 def decode_wrapper(in_file, out_file, sample_rate, resample_factor, window_length):
-    spectra = np.asarray(Image.open(in_file)).T.astype(np.float64) / 255
+    image_data = np.asarray(Image.open(in_file)).T.astype(np.float64)
+
+    if len(image_data.shape) == 3:
+        # raise error if its something other than rgb
+        assert image_data.shape[0] == 3
+        print("notice: summing rgb channels to achieve greyscale...")
+        image_data = image_data.sum(axis=0) / 3
+    
+    spectra = image_data / 255
     result = decode(spectra, sample_rate * resample_factor, window_length)
     result = resample(result, len(result) // resample_factor)
     wavfile.write(out_file, sample_rate, result)
 
 #@jit
 def decode(spectra, sample_rate, window_length):
-
-#    freqs = np.logspace(0, np.log(FREQ_MAX), spectra.shape[1], base=np.e).astype(np.uint)
     
     freqs = (FREQ_MAX * np.linspace(0, 1, spectra.shape[1]) ** 2) #.astype(np.uint)
 #    print(freqs)

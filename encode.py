@@ -14,8 +14,7 @@ from numba import jit, prange
 from scipy.io import wavfile
 from PIL import Image
 
-FREQ_MAX = 15_000
-
+FREQ_MAX = 20_000
 
 @click.command()
 @click.argument("in_file", required=True)
@@ -23,7 +22,7 @@ FREQ_MAX = 15_000
 @click.option("-f", "--resample-factor", default=1, help="Resample input data before analysis.")
 @click.option("-b", "--freq-bins", default=2048, help="Number of frequency bins.")
 @click.option("-w", "--window-size", default=4096, help="Size of analysis windows.")
-@click.option("-s", "--window-step", default=64, help="Space between analysis windows.")
+@click.option("-s", "--window-step", default=64, help="Space between centers of consecutive analysis windows.")
 def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, window_step):
     file_rate, data = wavfile.read(in_file)
     assert file_rate == 44100
