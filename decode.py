@@ -4,7 +4,7 @@ from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 
-from numba import jit
+from numba import jit, prange
 
 from PIL import Image
 from scipy.signal import resample
@@ -12,6 +12,7 @@ from scipy.io import wavfile
 
 #FREQ_MAX = SAMPLE_RATE / 2
 FREQ_MAX = 20_000
+
 
 @click.command()
 @click.argument("in_file", required=True)
@@ -33,17 +34,20 @@ def decode_wrapper(in_file, out_file, sample_rate, resample_factor, window_lengt
     result = resample(result, len(result) // resample_factor)
     wavfile.write(out_file, sample_rate, result)
 
-#@jit
+@jit(nopython=True, parallel=True, nogil=True)
 def decode(spectra, sample_rate, window_length):
+
+    num_windows = spectra.shape[0]
+    num_freqs = spectra.shape[1]
+    num_samples = num_windows * window_length
     
-    freqs = (FREQ_MAX * np.linspace(0, 1, spectra.shape[1]) ** 2) #.astype(np.uint)
-#    print(freqs)
+    freqs = np.linspace(5, FREQ_MAX, num_freqs)
     
     spectra = spectra * spectra
 #    spectra = np.exp(spectra)
 
-    length = spectra.shape[0] * window_length
-    T = np.linspace(0, length / sample_rate, spectra.shape[0] * window_length)
+    length = num_windows * window_length
+    T = np.linspace(0, length / sample_rate, num_windows * window_length)
 
     components = np.zeros((len(freqs), length))
     phases = np.random.random(len(freqs)) * sample_rate * 4
@@ -57,21 +61,16 @@ def decode(spectra, sample_rate, window_length):
 #        if freqs[i] != 0:
 #            components[i] /= freqs[i]
         
-    chunks = []
+    coeffs = np.zeros((num_samples, num_freqs))
     last_spectrum = spectra[0]
-    for window_idx in range(spectra.shape[0]):
-#        spec_col = spectra[window_idx].copy().reshape(-1, 1)
-#        chunk = np.repeat(spec_col, window_length, axis=1) => (32, 1024)
-#        print(chunk.shape)
-        chunk = np.linspace(last_spectrum, spectra[window_idx], window_length).T
-#        chunk = np.linspace(spectra[window_idx], spectra[window_idx], window_length).T
-        print(chunk.shape)
-        chunks.append(chunk)
-        last_spectrum = spectra[window_idx]
-        
-    coeffs = np.hstack(chunks)
-   
-    result = np.sum(np.multiply(coeffs, components), axis = 0)
+    for window_idx in prange(num_windows):
+        spectrum = spectra[window_idx]
+        window_start = window_idx * window_length
+        for sample_idx in prange(window_length):
+            coeffs[window_start + sample_idx] = last_spectrum + (spectrum - last_spectrum) * (float(sample_idx) / float(window_length))
+        last_spectrum = spectrum
+
+    result = np.sum(np.multiply(coeffs.T, components), axis = 0)
     result /= max(result.flatten())
 
     return result
