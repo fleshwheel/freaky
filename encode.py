@@ -21,7 +21,7 @@ FREQ_MAX = 20_000
 @click.argument("out_file", required=True)
 @click.option("-f", "--resample-factor", default=1, help="Resample input data before analysis.")
 @click.option("-b", "--freq-bins", default=512, help="Number of frequency bins.")
-@click.option("-w", "--window-size", default=4096, help="Size of analysis windows.")
+@click.option("-w", "--window-size", default=2048, help="Size of analysis windows.")
 @click.option("-s", "--window-step", default=64, help="Space between centers of consecutive analysis windows.")
 def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, window_step):
     file_rate, data = wavfile.read(in_file)
@@ -37,10 +37,6 @@ def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, w
 def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
     freqs = np.linspace(5, FREQ_MAX, freq_bins)
 
-    #freqs = np.logspace(0, np.log10(FREQ_MAX), freq_bins) #.astype(np.uint)
-    #print(freqs[:500])
-
-    
     # generate windows
     # with centers spaced WINDOW_STEP apart
     # each extending out WINDOW_SIZE / 2 in both directions
@@ -63,33 +59,15 @@ def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
     for freq_idx in prange(len(freqs)):
         freq = freqs[freq_idx]
         test[freq_idx] = np.cos(2 * np.pi * freq * t) * taper + np.sin(2 * np.pi * freq * t) * taper * 1j
-        
-        if freq == 0:
-            tail = 0
-        else:
-            period = (1.0 / freq) * rate
-            tail = int(window_size % period)
 
-        #test[freq_idx] /= window_size
-# try resurrecting!!
-#        for j in prange(0, tail):
-#            test_sin[freq_idx][-j] = 0
-#            test_cos[freq_idx][-j] = 0
-
-    print("dot")
     w_T = windows.T.astype(np.complex128)
     products = np.dot(test, w_T)
     
-#    products_cos = np.dot(test_cos, w_T)
-
     print("finalizing spectra...")
-    #spectra = np.sqrt(products_sin ** 2 + products_cos ** 2)
+
     spectra = np.abs(products) / len(windows)
     
-    # normalize spectra to export as 0-255
-    # blank wihte image -- max = 1996225
-    
-#    print(max(spectra.flatten()))
+
     spectra = spectra #/ max(spectra.flatten())
 
     spectra = np.sqrt(spectra)
