@@ -60,7 +60,7 @@ def decode(spectra, sample_rate, window_length):
 #    for i in range(len(freqs)):
 #        if freqs[i] != 0:
 #            components[i] /= freqs[i]
-        
+
     coeffs = np.zeros((num_samples, num_freqs))
     last_spectrum = spectra[0]
     for window_idx in prange(num_windows):
@@ -71,8 +71,9 @@ def decode(spectra, sample_rate, window_length):
         last_spectrum = spectrum
 
     result = np.sum(np.multiply(coeffs.T, components), axis = 0)
-    result /= max(result.flatten())
-
+    
+    result /= max(np.abs(result.flatten()))
+    
     return result
     
 
