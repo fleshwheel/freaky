@@ -49,29 +49,31 @@ def decode(spectra, sample_rate, window_length):
     length = num_windows * window_length
     T = np.linspace(0, length / sample_rate, num_windows * window_length)
 
-    components = np.zeros((len(freqs), length))
+    result = np.zeros(num_samples)
+
+    #components = np.zeros((len(freqs), length))
     phases = np.random.random(len(freqs)) * sample_rate * 4
-    for i in range(len(freqs)):
-        components[i] = freqs[i] * T
-        if freqs[i] != 0:
-            components[i] += phases[i] / freqs[i]
-    
-    components = np.sin(2 * np.pi * components)
-#    for i in range(len(freqs)):
-#        if freqs[i] != 0:
-#            components[i] /= freqs[i]
 
-    coeffs = np.zeros((num_samples, num_freqs))
-    last_spectrum = spectra[0]
-    for window_idx in prange(num_windows):
-        spectrum = spectra[window_idx]
-        window_start = window_idx * window_length
-        for sample_idx in prange(window_length):
-            coeffs[window_start + sample_idx] = last_spectrum + (spectrum - last_spectrum) * (float(sample_idx) / float(window_length))
-        last_spectrum = spectrum
-
-    result = np.sum(np.multiply(coeffs.T, components), axis = 0)
+    print(spectra.shape)
     
+    for i_f in range(len(freqs)):
+        term = np.zeros(num_samples)
+        
+        component = freqs[i_f] * T
+        if freqs[i_f] != 0:
+            component += phases[i_f] / freqs[i_f]
+        component = np.sin(2 * np.pi * component)
+
+        last_coeff = spectra[0][i_f]
+        for i_w in prange(num_windows):
+            coeff = spectra[i_w][i_f]
+            window = np.linspace(last_coeff, coeff, window_length)
+            wstart = i_w * window_length
+            wend = wstart + window_length
+            term[wstart: wend] = np.multiply(window, component[wstart: wend])
+            last_coeff = coeff
+        result += term
+  
     result /= max(np.abs(result.flatten()))
     
     return result
