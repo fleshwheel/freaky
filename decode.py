@@ -17,8 +17,7 @@ FREQ_MAX = 20_000
 @click.command()
 @click.argument("in_file", required=True)
 @click.argument("out_file", required=True)
-@click.option("-r", "--sample-rate", default=44100, help="Sample rate of output audio WAV file.")
-@click.option("-f", "--resample-factor", default=1, help="Resample input data before analysis.")
+@click.option("-r", "--resample-factor", default=1, help="Resample input data before analysis.")
 @click.option("-w", "--window-length", default=64, help="Space between centers of consecutive analysis windows.")
 def decode_wrapper(in_file, out_file, sample_rate, resample_factor, window_length):
     image_data = np.asarray(Image.open(in_file)).T.astype(np.float64)
@@ -41,22 +40,22 @@ def decode(spectra, sample_rate, window_length):
     num_freqs = spectra.shape[1]
     num_samples = num_windows * window_length
     
-    freqs = np.linspace(5, FREQ_MAX, num_freqs)
+    freqs = np.linspace(0, FREQ_MAX, num_freqs)
     
-    spectra = spectra * spectra
+#    spectra = spectra * spectra
 #    spectra = np.exp(spectra)
 
     length = num_windows * window_length
     T = np.linspace(0, length / sample_rate, num_windows * window_length)
 
-    result = np.zeros(num_samples)
+    result = np.zeros(num_samples, dtype=np.float64)
+
+    print(result.dtype)
 
     #components = np.zeros((len(freqs), length))
     phases = np.random.random(len(freqs)) * sample_rate * 4
 
-    print(spectra.shape)
-    
-    for i_f in range(len(freqs)):
+    for i_f in prange(len(freqs)):
         term = np.zeros(num_samples)
         
         component = freqs[i_f] * T

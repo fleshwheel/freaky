@@ -4,6 +4,8 @@ Prism is a command-line tool converting between audio and image representations 
 
 In practice, frequency analysis is typically performed via the fourier transform.
 
+## usage
+
 
 # citations
 

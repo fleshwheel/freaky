@@ -19,7 +19,7 @@ FREQ_MAX = 20_000
 @click.command()
 @click.argument("in_file", required=True)
 @click.argument("out_file", required=True)
-@click.option("-f", "--resample-factor", default=1, help="Resample input data before analysis.")
+@click.option("-r", "--resample-factor", default=1, help="Resample input data before analysis.")
 @click.option("-b", "--freq-bins", default=512, help="Number of frequency bins.")
 @click.option("-w", "--window-size", default=2048, help="Size of analysis windows.")
 @click.option("-s", "--window-step", default=64, help="Space between centers of consecutive analysis windows.")
@@ -35,7 +35,7 @@ def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, w
 
 @jit(nopython=True, parallel=True, nogil=True)
 def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
-    freqs = np.linspace(5, FREQ_MAX, freq_bins)
+    freqs = np.linspace(0, FREQ_MAX, freq_bins)
 
     # generate windows
     # with centers spaced WINDOW_STEP apart
@@ -54,11 +54,12 @@ def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
     test = np.zeros((len(freqs), window_size)).astype(np.complex128)
 #    test_cos = np.zeros((len(freqs), window_size))
     t = np.linspace(0, window_size / rate, window_size)
-    #    phases = np.random.random((len(freqs), 2)) * 2 * np.pi
-
-    for freq_idx in prange(len(freqs)):
+    
+    for freq_idx in range(len(freqs)):
         freq = freqs[freq_idx]
-        test[freq_idx] = np.cos(2 * np.pi * freq * t) * taper + np.sin(2 * np.pi * freq * t) * taper * 1j
+        tp1 = t + phases[freq_idx][0]
+        tp2 = t + phases[freq_idx][1]
+        test[freq_idx] = np.cos(2 * np.pi * freq * tp1) * taper + np.sin(2 * np.pi * freq * tp2) * taper * 1j
 
     w_T = windows.T.astype(np.complex128)
     products = np.dot(test, w_T)
@@ -66,7 +67,6 @@ def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
     print("finalizing spectra...")
 
     spectra = np.abs(products) / len(windows)
-    
 
     spectra = spectra #/ max(spectra.flatten())
 
