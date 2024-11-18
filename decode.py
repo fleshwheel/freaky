@@ -10,14 +10,13 @@ from PIL import Image
 from scipy.signal import resample
 from scipy.io import wavfile
 
-#FREQ_MAX = SAMPLE_RATE / 2
 FREQ_MAX = 20_000
-
 
 @click.command()
 @click.argument("in_file", required=True)
 @click.argument("out_file", required=True)
-@click.option("-r", "--resample-factor", default=1, help="Resample input data before analysis.")
+@click.option("-r", "--sample-rate", default=44100, help="Sample rate for output WAV file.")
+@click.option("-x", "--resample-factor", default=1, help="Resample input data before analysis.")
 @click.option("-w", "--window-length", default=64, help="Space between centers of consecutive analysis windows.")
 def decode_wrapper(in_file, out_file, sample_rate, resample_factor, window_length):
     image_data = np.asarray(Image.open(in_file)).T.astype(np.float64)

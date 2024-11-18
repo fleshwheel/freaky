@@ -19,7 +19,7 @@ FREQ_MAX = 20_000
 @click.command()
 @click.argument("in_file", required=True)
 @click.argument("out_file", required=True)
-@click.option("-r", "--resample-factor", default=1, help="Resample input data before analysis.")
+@click.option("-x", "--resample-factor", default=1, help="Resample input data before analysis.")
 @click.option("-b", "--freq-bins", default=512, help="Number of frequency bins.")
 @click.option("-w", "--window-size", default=2048, help="Size of analysis windows.")
 @click.option("-s", "--window-step", default=64, help="Space between centers of consecutive analysis windows.")
@@ -27,7 +27,7 @@ def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, w
     file_rate, data = wavfile.read(in_file)
     if data.dtype == np.int32:
         data = data.astype(np.float64) / (2 ** 31)
-    assert file_rate == 44100
+    #assert file_rate == 44100
     data = signal.resample(data, len(data) * resample_factor)
     spectra = encode(file_rate * resample_factor, data, freq_bins, window_size, window_step)
     im = Image.fromarray(spectra, mode="L")
@@ -57,8 +57,8 @@ def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
     
     for freq_idx in range(len(freqs)):
         freq = freqs[freq_idx]
-        tp1 = t + phases[freq_idx][0]
-        tp2 = t + phases[freq_idx][1]
+        tp1 = t #+ phases[freq_idx][0]
+        tp2 = t #+ phases[freq_idx][1]
         test[freq_idx] = np.cos(2 * np.pi * freq * tp1) * taper + np.sin(2 * np.pi * freq * tp2) * taper * 1j
 
     w_T = windows.T.astype(np.complex128)
