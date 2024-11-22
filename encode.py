@@ -19,7 +19,7 @@ FREQ_MAX = 20_000
 @click.command()
 @click.argument("in_file", required=True)
 @click.argument("out_file", required=True)
-@click.option("-r", "--resample-factor", default=1, help="Resample input data before analysis.")
+@click.option("-x", "--resample-factor", default=1, help="Resample input data before analysis.")
 @click.option("-b", "--freq-bins", default=512, help="Number of frequency bins.")
 @click.option("-w", "--window-size", default=2048, help="Size of analysis windows.")
 @click.option("-s", "--window-step", default=64, help="Space between centers of consecutive analysis windows.")
@@ -56,8 +56,6 @@ def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, w
         spectra_r = encode(file_rate * resample_factor, audio_r, freq_bins, window_size, window_step)
 
         im = np.zeros((freq_bins, len(spectra_l[0]), 3))
-
-        print(spectra_l.shape)
 
         im_r = Image.fromarray(spectra_l, mode="L")
         im_b = Image.fromarray(spectra_r, mode="L")
@@ -105,8 +103,6 @@ def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
     w_T = windows.T.astype(np.complex128)
     products = np.dot(test, w_T)
     
-    print("finalizing spectra...")
-
     spectra = np.abs(products) / len(windows)
 
     spectra = spectra #/ max(spectra.flatten())
@@ -116,7 +112,6 @@ def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
     spectra = spectra * 255 * 4
     
     spectra = spectra.astype(np.uint8)
-
 
     return spectra
 

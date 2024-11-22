@@ -12,11 +12,10 @@ from scipy.io import wavfile
 
 FREQ_MAX = 20_000
 
-
 @click.command()
 @click.argument("in_file", required=True)
 @click.argument("out_file", required=True)
-@click.option("-r", "--resample-factor", default=1, help="Resample input data before analysis.")
+@click.option("-x", "--resample-factor", default=1, help="Resample input data before analysis.")
 @click.option("-w", "--window-length", default=64, help="Space between centers of consecutive analysis windows.")
 @click.option("-r", "--sample-rate", default=44100, help="Sample rate of output audio.")
 @click.option("-2", "--stereo", is_flag=True)
@@ -34,19 +33,13 @@ def decode_wrapper(in_file, out_file, sample_rate, resample_factor, window_lengt
         spectra_l = image_data[0]
         spectra_r = image_data[2]
 
-        print("left shape")
-        print(spectra_l.shape)
-
         audio_l = decode(spectra_l, sample_rate *resample_factor, window_length)
         audio_r = decode(spectra_r, sample_rate * resample_factor, window_length)
 
         #audio_l = resample(audio_l, len(audio_l) // resample_factor)
         #audio_r = resample(audio_r, len(audio_r) // resample_factor)
-
         audio = np.array([audio_l, audio_r]).T
 
-        print(audio.shape)
-        
     else:
         audio = decode(image_data, sample_rate * resample_factor, window_length)
         audio = resample(audio, len(audio) // resample_factor)
@@ -99,7 +92,7 @@ def decode(spectra, sample_rate, window_length):
     result /= max(np.abs(result.flatten()))
     
     return result
-    
+   
 
 if __name__ == "__main__":
     decode_wrapper()
