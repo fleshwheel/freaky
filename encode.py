@@ -19,19 +19,60 @@ FREQ_MAX = 20_000
 @click.command()
 @click.argument("in_file", required=True)
 @click.argument("out_file", required=True)
-@click.option("-x", "--resample-factor", default=1, help="Resample input data before analysis.")
+@click.option("-r", "--resample-factor", default=1, help="Resample input data before analysis.")
 @click.option("-b", "--freq-bins", default=512, help="Number of frequency bins.")
 @click.option("-w", "--window-size", default=2048, help="Size of analysis windows.")
 @click.option("-s", "--window-step", default=64, help="Space between centers of consecutive analysis windows.")
-def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, window_step):
-    file_rate, data = wavfile.read(in_file)
-    if data.dtype == np.int32:
-        data = data.astype(np.float64) / (2 ** 31)
-    #assert file_rate == 44100
-    data = signal.resample(data, len(data) * resample_factor)
-    spectra = encode(file_rate * resample_factor, data, freq_bins, window_size, window_step)
-    im = Image.fromarray(spectra, mode="L")
-    im.save(out_file)
+@click.option("-2", "--stereo", is_flag=True)
+def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, window_step, stereo):
+    file_rate, audio = wavfile.read(in_file)
+    audio = audio.T
+
+    print(audio.dtype)
+    if audio.dtype == np.int32:
+        audio = audio.astype(np.float64) / (2 ** 31)
+    elif audio.dtype == np.int16:
+        audio = audio.astype(np.float64) / (2 ** 15)
+
+    if len(audio.shape) > 2:
+        raise Exception("unexpected WAV file shape")
+    elif len(audio.shape) == 2:
+        if audio.shape[0] > 2:
+            print("warning: discarding all wav channels except first 2...")
+            audio = audio[:2]
+        if audio.shape[0] == 1: # dont know how this could happen in practice
+            audio = np.concat((audio, audio))
+        if not stereo:
+            audio = (audio[0] + audio[1]) / 2.0
+    elif len(audio.shape) == 1:
+        if stereo:
+            audio = np.array([audio, audio])
+
+    if stereo:
+        audio_l = signal.resample(audio[0], len(audio[0]) * resample_factor)
+        audio_r = signal.resample(audio[1], len(audio[0]) * resample_factor)
+
+        spectra_l = encode(file_rate * resample_factor, audio_l, freq_bins, window_size, window_step)
+        spectra_r = encode(file_rate * resample_factor, audio_r, freq_bins, window_size, window_step)
+
+        im = np.zeros((freq_bins, len(spectra_l[0]), 3))
+
+        print(spectra_l.shape)
+
+        im_r = Image.fromarray(spectra_l, mode="L")
+        im_b = Image.fromarray(spectra_r, mode="L")
+        im_g = Image.fromarray(spectra_l * 0, mode="L")
+
+        Image.merge("RGB", (im_r, im_g, im_b)).save(out_file)
+        
+        #im[:,:,0] = spectra_l
+        #im[:,:,2] = spectra_r
+        #Image.fromarray(im, mode="RGB").save(out_file)
+    else:
+        audio = signal.resample(audio, len(audio) * resample_factor)
+        spectra = encode(file_rate * resample_factor, audio, freq_bins, window_size, window_step)
+
+        Image.fromarray(spectra, mode="L").save(out_file)
 
 @jit(nopython=True, parallel=True, nogil=True)
 def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
