@@ -2,9 +2,9 @@
 
 prism is a command-line tool converting between audio and image representations of frequency intensity over time.
 
-a spectrogram is a visual representation of the frequency "spectra" of a signal over time. they are useful for a wide range of audio analysis.
+a spectrogram is a visual representation of the frequency "spectra" of a signal over time. they are useful for a wide range of audio analysis. this tool was created to study the characteristics of PZT crystals as chaotic dynamical systems and their application in reservoir computing.
 
-this frequency-domain decomposition is somewhat natural given humans' sense of hearing is based on 
+this frequency-domain decomposition is somewhat intuitive given that humans percieve sound in the frequency-intensity domain [1]. 
 
 ## usage
 
@@ -20,5 +20,4 @@ further command line parameters can be found by passing the `--help` flag to eit
 
 # citations
 
-[1] https://www.music.mcgill.ca/~gary/307/week6/node4.html accessed 1 nov 2024
-[2] https://www.music.mcgill.ca/~gary/307/week6/node5.html accessed 1 nov 2024
+[1] "The Effects of Noise on Man", Karl D. Kryter. Academic Press (1970). page 4.
