@@ -9,6 +9,7 @@ import numpy as np
 import scipy
 from scipy import signal
 from numba import jit, prange
+from sys import exit
 
 # i/o
 from scipy.io import wavfile
@@ -27,8 +28,12 @@ FREQ_MAX = 20_000
 def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, window_step, stereo):
     file_rate, audio = wavfile.read(in_file)
     audio = audio.T
+    
+    #num_windows = len(range(0, len(audio) * resample_factor - window_size, window_step))
+    #if num_windows < 2:
+    #    print("warning: less than 2 windows generated. decrease step size or increase sample rate.")
+    #    exit(1)
 
-    print(audio.dtype)
     if audio.dtype == np.int32:
         audio = audio.astype(np.float64) / (2 ** 31)
     elif audio.dtype == np.int16:
@@ -105,9 +110,9 @@ def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
     
     spectra = np.abs(products) / len(windows)
 
-    spectra = spectra #/ max(spectra.flatten())
+    #spectra = spectra / max(spectra.flatten())
 
-    spectra = np.sqrt(spectra)
+    #spectra = np.sqrt(spectra)
     
     spectra = spectra * 255 * 4
     
