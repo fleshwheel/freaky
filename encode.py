@@ -57,9 +57,9 @@ def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, w
 
         im = np.zeros((freq_bins, len(spectra_l[0]), 3))
 
-        im_r = Image.fromarray(spectra_l, mode="L")
-        im_b = Image.fromarray(spectra_r, mode="L")
-        im_g = Image.fromarray(spectra_l * 0, mode="L")
+        im_g = Image.fromarray(spectra_l, mode="L")
+        im_r = Image.fromarray(spectra_r, mode="L")
+        im_b = Image.fromarray(spectra_l * 0, mode="L")
 
         Image.merge("RGB", (im_r, im_g, im_b)).save(out_file)
         

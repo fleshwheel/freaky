@@ -30,8 +30,8 @@ def decode_wrapper(in_file, out_file, sample_rate, resample_factor, window_step,
     image_data = np.asarray(im, dtype=np.float64).T / 255
 
     if stereo:
-        spectra_l = image_data[0]
-        spectra_r = image_data[2]
+        spectra_l = image_data[1]
+        spectra_r = image_data[0]
 
         audio_l = decode(spectra_l, sample_rate * resample_factor, window_step)
         audio_r = decode(spectra_r, sample_rate * resample_factor, window_step)
