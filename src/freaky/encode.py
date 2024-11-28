@@ -110,9 +110,11 @@ def encode(rate, data, freq_bins, window_size, stride): # -> array(float64)
     w_T = windows.T.astype(np.complex128)
     products = np.dot(test, w_T)
     
-    spectra = np.abs(products) / len(windows)
+    spectra = np.abs(products)
 
-    spectra = spectra / max(np.abs(spectra.flatten()))
+    spectra = spectra / freq_bins
+
+    print(np.max(spectra))
     
     spectra = np.sqrt(spectra)
 

@@ -64,8 +64,6 @@ def decode(spectra, sample_rate, stride):
 
     result = np.zeros(num_samples, dtype=np.float64)
 
-    print(result.dtype)
-
     phases = np.random.random(len(freqs)) * 4 * np.pi
     phases[0] = 0
 
@@ -84,9 +82,7 @@ def decode(spectra, sample_rate, stride):
             term[wstart: wend] = np.multiply(window, component[wstart: wend])
             last_coeff = coeff
         result += term
-  
-    result /= np.max(np.abs(result), axis=0)
-    
+
     return result
    
 
