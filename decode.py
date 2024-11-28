@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import click
 from tqdm import tqdm
 
@@ -16,10 +18,10 @@ FREQ_MAX = 20_000
 @click.argument("in_file", required=True)
 @click.argument("out_file", required=True)
 @click.option("-x", "--resample-factor", default=1, help="Resample input data before analysis.")
-@click.option("-s", "--window-step", default=64, help="Space between centers of consecutive analysis windows.")
-@click.option("-r", "--sample-rate", default=44100, help="Sample rate of output audio.")
+@click.option("-s", "--stride", default=64, help="Space between centers of consecutive analysis windows.")
+@click.option("-r", "--sample-rate", default=192000, help="Sample rate of output audio.")
 @click.option("-2", "--stereo", is_flag=True)
-def decode_wrapper(in_file, out_file, sample_rate, resample_factor, window_step, stereo):
+def decode_wrapper(in_file, out_file, sample_rate, resample_factor, stride, stereo):
     im = Image.open(in_file)
 
     if stereo:
@@ -33,63 +35,57 @@ def decode_wrapper(in_file, out_file, sample_rate, resample_factor, window_step,
         spectra_l = image_data[1]
         spectra_r = image_data[0]
 
-        audio_l = decode(spectra_l, sample_rate * resample_factor, window_step)
-        audio_r = decode(spectra_r, sample_rate * resample_factor, window_step)
+        audio_l = decode(spectra_l, sample_rate * resample_factor, stride)
+        audio_r = decode(spectra_r, sample_rate * resample_factor, stride)
 
         audio_l = resample(audio_l, len(audio_l) // resample_factor)
         audio_r = resample(audio_r, len(audio_r) // resample_factor)
         audio = np.array([audio_l, audio_r]).T
 
     else:
-        audio = decode(image_data, sample_rate * resample_factor, window_step)
+        audio = decode(image_data, sample_rate * resample_factor, stride)
         audio = resample(audio, len(audio) // resample_factor)
 
     wavfile.write(out_file, sample_rate, audio)
 
 @jit(nopython=True, parallel=True, nogil=True)
-def decode(spectra, sample_rate, window_step):
+def decode(spectra, sample_rate, stride):
 
     num_windows = spectra.shape[0]
     num_freqs = spectra.shape[1]
-    num_samples = num_windows * window_step
+    num_samples = num_windows * stride
     
     freqs = np.linspace(0, FREQ_MAX, num_freqs)
     
-#    spectra = spectra * spectra
-#    spectra = np.exp(spectra)
+    spectra = spectra * spectra
 
-    length = num_windows * window_step
-    T = np.linspace(0, length / sample_rate, num_windows * window_step)
+    length = num_windows * stride
+    T = np.linspace(0, length / sample_rate, num_windows * stride)
 
     result = np.zeros(num_samples, dtype=np.float64)
 
     print(result.dtype)
 
-    #components = np.zeros((len(freqs), length))
-    phases = np.random.random(len(freqs)) * 1000
+    phases = np.random.random(len(freqs)) * 4 * np.pi
+    phases[0] = 0
 
     for i_f in prange(len(freqs)):
         term = np.zeros(num_samples)
         
         component = freqs[i_f] * T
-        #if freqs[i_f] != 0:
-        #    component += phases[i_f] / freqs[i_f]
-        if i_f % 2 == 0:
-            component = np.cos(2 * np.pi * component)
-        else:
-            component = np.sin(2 * np.pi * component)
+        component = np.sin(2 * np.pi * component + phases[i_f])
 
         last_coeff = spectra[0][i_f]
         for i_w in prange(num_windows):
             coeff = spectra[i_w][i_f]
-            window = np.linspace(last_coeff, coeff, window_step)
-            wstart = i_w * window_step
-            wend = wstart + window_step
+            window = np.linspace(last_coeff, coeff, stride)
+            wstart = i_w * stride
+            wend = wstart + stride
             term[wstart: wend] = np.multiply(window, component[wstart: wend])
             last_coeff = coeff
         result += term
   
-    result /= max(np.abs(result.flatten()))
+    result /= np.max(np.abs(result), axis=0)
     
     return result
    

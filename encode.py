@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # encode.py
 # encode .wav file into frequency spectrogram
 
@@ -23,13 +25,13 @@ FREQ_MAX = 20_000
 @click.option("-x", "--resample-factor", default=1, help="Resample input data before analysis.")
 @click.option("-b", "--freq-bins", default=512, help="Number of frequency bins.")
 @click.option("-w", "--window-size", default=2048, help="Size of analysis windows.")
-@click.option("-s", "--window-step", default=64, help="Space between centers of consecutive analysis windows.")
+@click.option("-s", "--stride", default=64, help="Space between centers of consecutive analysis windows.")
 @click.option("-2", "--stereo", is_flag=True)
-def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, window_step, stereo):
+def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, stride, stereo):
     file_rate, audio = wavfile.read(in_file)
     audio = audio.T
     
-    #num_windows = len(range(0, len(audio) * resample_factor - window_size, window_step))
+    #num_windows = len(range(0, len(audio) * resample_factor - window_size, stride))
     #if num_windows < 2:
     #    print("warning: less than 2 windows generated. decrease step size or increase sample rate.")
     #    exit(1)
@@ -57,8 +59,8 @@ def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, w
         audio_l = signal.resample(audio[0], len(audio[0]) * resample_factor)
         audio_r = signal.resample(audio[1], len(audio[0]) * resample_factor)
 
-        spectra_l = encode(file_rate * resample_factor, audio_l, freq_bins, window_size, window_step)
-        spectra_r = encode(file_rate * resample_factor, audio_r, freq_bins, window_size, window_step)
+        spectra_l = encode(file_rate * resample_factor, audio_l, freq_bins, window_size, stride)
+        spectra_r = encode(file_rate * resample_factor, audio_r, freq_bins, window_size, stride)
 
         im = np.zeros((freq_bins, len(spectra_l[0]), 3))
 
@@ -73,19 +75,19 @@ def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, w
         #Image.fromarray(im, mode="RGB").save(out_file)
     else:
         audio = signal.resample(audio, len(audio) * resample_factor)
-        spectra = encode(file_rate * resample_factor, audio, freq_bins, window_size, window_step)
+        spectra = encode(file_rate * resample_factor, audio, freq_bins, window_size, stride)
 
         Image.fromarray(spectra, mode="L").save(out_file)
 
 @jit(nopython=True, parallel=True, nogil=True)
-def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
+def encode(rate, data, freq_bins, window_size, stride): # -> array(float64)
     freqs = np.linspace(0, FREQ_MAX, freq_bins)
 
     # generate windows
     # with centers spaced WINDOW_STEP apart
     # each extending out WINDOW_SIZE / 2 in both directions
     # and tapered with a hamming window
-    window_starts = np.arange(0, len(data) - window_size, window_step)
+    window_starts = np.arange(0, len(data) - window_size, stride)
 
     windows = np.zeros((len(window_starts), window_size))
     taper = np.hamming(window_size)
@@ -94,10 +96,10 @@ def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
         w_end = w_start + window_size
         windows[w_idx] = data[w_start: w_end]
 
-    # test windows, 1 per frequency (with 0 and 90deg shifted options)
     test = np.zeros((len(freqs), window_size)).astype(np.complex128)
-#    test_cos = np.zeros((len(freqs), window_size))
     t = np.linspace(0, window_size / rate, window_size)
+    
+    phases = np.random.random((len(freqs), 2))
     
     for freq_idx in range(len(freqs)):
         freq = freqs[freq_idx]
@@ -110,11 +112,11 @@ def encode(rate, data, freq_bins, window_size, window_step): # -> array(float64)
     
     spectra = np.abs(products) / len(windows)
 
-    #spectra = spectra / max(spectra.flatten())
-
-    #spectra = np.sqrt(spectra)
+    spectra = spectra / max(np.abs(spectra.flatten()))
     
-    spectra = spectra * 255 * 4
+    spectra = np.sqrt(spectra)
+
+    spectra = spectra * 255
     
     spectra = spectra.astype(np.uint8)
 
