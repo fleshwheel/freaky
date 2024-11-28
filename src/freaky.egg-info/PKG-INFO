@@ -1,3 +1,11 @@
+Metadata-Version: 2.1
+Name: freaky
+Version: 1.0.0a2
+Summary: tools for frequency domain analysis of audio.
+Author-email: Leslie Schumm <lschumm@protonmail.com>
+License: GPL-2.0-only
+Description-Content-Type: text/markdown
+
 # about
 
 freaky is a command-line tool converting between audio and image representations of frequency intensity over time.

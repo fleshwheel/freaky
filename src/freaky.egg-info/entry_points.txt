@@ -1,0 +1,3 @@
+[console_scripts]
+freaky-decode = freaky:_decode_wrapper
+freaky-encode = freaky:_encode_wrapper
