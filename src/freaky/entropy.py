@@ -4,17 +4,19 @@ import numpy as np
 from PIL import Image
 from numba import jit, prange
 
-@jit(nopython=True, parallel=True, nogil=True)
 def average_entropy(filename):
     # no support for RGB yet
     im = np.asarray(Image.open(filename).convert("L")).T
+    return _average_entropy(im)
 
+@jit(nopython=True, parallel=True, nogil=True)
+def _average_entropy(im):
     num_freqs = im.shape[1]
     num_spectra = im.shape[0]
     im = im ** 2 # to account for sqrt scaling
 
     entropies = np.zeros(num_spectra)
-    for row_idx in range(num_spectra):
+    for row_idx in prange(num_spectra):
         psd = (im[row_idx] ** 2) / num_freqs
 
         pdf = psd
@@ -28,6 +30,5 @@ def average_entropy(filename):
 
         entropies[row_idx] = entropy
         
-    return sum(entropies)
+    return sum(entropies) / len(entropies)
 
-                    
