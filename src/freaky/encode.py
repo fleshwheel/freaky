@@ -111,10 +111,8 @@ def _encode(rate, data, freq_bins, window_size, stride): # -> array(float64)
     
     phases = np.random.random((len(freqs), 2))
     
-    for freq_idx in range(len(freqs)):
+    for freq_idx in prange(len(freqs)):
         freq = freqs[freq_idx]
-        tp1 = t #+ phases[freq_idx][0]
-        tp2 = t #+ phases[freq_idx][1]
         test[freq_idx] = np.cos(2 * np.pi * freq * tp1) * taper + np.sin(2 * np.pi * freq * tp2) * taper * 1j
 
     w_T = windows.T.astype(np.complex128)
