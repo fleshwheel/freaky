@@ -12,7 +12,10 @@ from PIL import Image
 from scipy.signal import resample
 from scipy.io import wavfile
 
+# default values
 FREQ_MAX = 20_000
+STRIDE = 64
+SAMPLE_RATE = 192000
 
 @click.command()
 @click.argument("in_file", required=True)
@@ -21,7 +24,12 @@ FREQ_MAX = 20_000
 @click.option("-s", "--stride", default=64, help="Space between centers of consecutive analysis windows.")
 @click.option("-r", "--sample-rate", default=192000, help="Sample rate of output audio.")
 @click.option("-2", "--stereo", is_flag=True)
-def decode_wrapper(in_file, out_file, sample_rate, resample_factor, stride, stereo):
+def decode_cli(in_file, out_file, sample_rate, resample_factor, stride, stereo):
+    decode(in_file, out_file, sample_rate, resample_factor, stride, stereo)
+
+def decode(in_file, out_file,
+           sample_rate = SAMPLE_RATE, stride = STRIDE,
+           stereo = False):
     im = Image.open(in_file)
 
     if stereo:
@@ -35,21 +43,21 @@ def decode_wrapper(in_file, out_file, sample_rate, resample_factor, stride, ster
         spectra_l = image_data[1]
         spectra_r = image_data[0]
 
-        audio_l = decode(spectra_l, sample_rate * resample_factor, stride)
-        audio_r = decode(spectra_r, sample_rate * resample_factor, stride)
+        audio_l = _decode(spectra_l, sample_rate * resample_factor, stride)
+        audio_r = _decode(spectra_r, sample_rate * resample_factor, stride)
 
         audio_l = resample(audio_l, len(audio_l) // resample_factor)
         audio_r = resample(audio_r, len(audio_r) // resample_factor)
         audio = np.array([audio_l, audio_r]).T
 
     else:
-        audio = decode(image_data, sample_rate * resample_factor, stride)
+        audio = _decode(image_data, sample_rate * resample_factor, stride)
         audio = resample(audio, len(audio) // resample_factor)
 
     wavfile.write(out_file, sample_rate, audio)
 
 @jit(nopython=True, parallel=True, nogil=True)
-def decode(spectra, sample_rate, stride):
+def _decode(spectra, sample_rate, stride):
 
     num_windows = spectra.shape[0]
     num_freqs = spectra.shape[1]
@@ -87,4 +95,4 @@ def decode(spectra, sample_rate, stride):
    
 
 if __name__ == "__main__":
-    decode_wrapper()
+    decode_cli()

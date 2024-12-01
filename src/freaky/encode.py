@@ -17,7 +17,11 @@ from sys import exit
 from scipy.io import wavfile
 from PIL import Image
 
+# default values
 FREQ_MAX = 20_000
+FREQ_BINS = 512
+WINDOW_SIZE = 2048
+STRIDE = 64
 
 @click.command()
 @click.argument("in_file", required=True)
@@ -27,7 +31,13 @@ FREQ_MAX = 20_000
 @click.option("-w", "--window-size", default=2048, help="Size of analysis windows.")
 @click.option("-s", "--stride", default=64, help="Space between centers of consecutive analysis windows.")
 @click.option("-2", "--stereo", is_flag=True)
-def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, stride, stereo):
+def encode_cli(in_file, out_file, resample_factor, freq_bins, window_size, stride, stereo):
+    encode(in_file, out_file, resample_factor, freq_bins, window_size, stride, stereo)
+
+def encode(in_file, out_file,
+           resample_factor = 1, freq_bins = FREQ_BINS,
+           window_size = WINDOW_SIZE, stride = STRIDE,
+           stereo = False):
     file_rate, audio = wavfile.read(in_file)
     audio = audio.T
     
@@ -59,8 +69,8 @@ def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, s
         audio_l = signal.resample(audio[0], len(audio[0]) * resample_factor)
         audio_r = signal.resample(audio[1], len(audio[0]) * resample_factor)
 
-        spectra_l = encode(file_rate * resample_factor, audio_l, freq_bins, window_size, stride)
-        spectra_r = encode(file_rate * resample_factor, audio_r, freq_bins, window_size, stride)
+        spectra_l = _encode(file_rate * resample_factor, audio_l, freq_bins, window_size, stride)
+        spectra_r = _encode(file_rate * resample_factor, audio_r, freq_bins, window_size, stride)
 
         im = np.zeros((freq_bins, len(spectra_l[0]), 3))
 
@@ -75,12 +85,12 @@ def encode_wrapper(in_file, out_file, resample_factor, freq_bins, window_size, s
         #Image.fromarray(im, mode="RGB").save(out_file)
     else:
         audio = signal.resample(audio, len(audio) * resample_factor)
-        spectra = encode(file_rate * resample_factor, audio, freq_bins, window_size, stride)
+        spectra = _encode(file_rate * resample_factor, audio, freq_bins, window_size, stride)
 
         Image.fromarray(spectra, mode="L").save(out_file)
 
 @jit(nopython=True, parallel=True, nogil=True)
-def encode(rate, data, freq_bins, window_size, stride): # -> array(float64)
+def _encode(rate, data, freq_bins, window_size, stride): # -> array(float64)
     freqs = np.linspace(0, FREQ_MAX, freq_bins)
 
     # generate windows
@@ -114,9 +124,8 @@ def encode(rate, data, freq_bins, window_size, stride): # -> array(float64)
 
     spectra = spectra / freq_bins
 
-    print(np.max(spectra))
-    
     spectra = np.sqrt(spectra)
+    spectra = np.clip(spectra, 0, 1)
 
     spectra = spectra * 255
     
@@ -125,4 +134,4 @@ def encode(rate, data, freq_bins, window_size, stride): # -> array(float64)
     return spectra
 
 if __name__ == "__main__":
-    encode_wrapper()
+    encode_cli()

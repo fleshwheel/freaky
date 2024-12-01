@@ -10,7 +10,7 @@ authors = [
 description = "tools for frequency domain analysis of audio."
 readme = "README.md"
 license = {text = "GPL-2.0-only"}
-version = "1.0.0a3"
+version = "1.0.0a4"
 dynamic = []
 dependencies = [
 	"click",
@@ -21,5 +21,5 @@ dependencies = [
 	]
 
 [project.scripts]
-freaky-encode = "freaky:_encode_wrapper"
-freaky-decode = "freaky:_decode_wrapper"
+freaky-encode = "freaky:_encode_cli"
+freaky-decode = "freaky:_decode_cli"
