@@ -113,7 +113,7 @@ def _encode(rate, data, freq_bins, window_size, stride): # -> array(float64)
     
     for freq_idx in prange(len(freqs)):
         freq = freqs[freq_idx]
-        test[freq_idx] = np.cos(2 * np.pi * freq * tp1) * taper + np.sin(2 * np.pi * freq * tp2) * taper * 1j
+        test[freq_idx] = np.cos(2 * np.pi * freq * t) * taper + np.sin(2 * np.pi * freq * t) * taper * 1j
 
     w_T = windows.T.astype(np.complex128)
     products = np.dot(test, w_T)

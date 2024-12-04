@@ -4,8 +4,8 @@ import numpy as np
 from PIL import Image
 
 def imgdiff(file1, file2):
-    im1 = np.asarray(Image.open(file1).convert("RGB"), dtype=np.float64) / 255
-    im2 = np.asarray(Image.open(file2).convert("RGB"), dtype=np.float64) / 255
+    im1 = np.asarray(Image.open(file1).convert("RGB"), dtype=np.float64) / (255 * 3)
+    im2 = np.asarray(Image.open(file2).convert("RGB"), dtype=np.float64) / (255 * 3)
 
     if im1.shape != im2.shape:
         print("warning! cannot compare images of differing shapes.")

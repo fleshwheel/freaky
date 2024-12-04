@@ -10,7 +10,7 @@ authors = [
 description = "tools for frequency domain analysis of audio."
 readme = "README.md"
 license = {text = "GPL-2.0-only"}
-version = "1.0.0a5"
+version = "1.0.0a11"
 dynamic = []
 dependencies = [
 	"click",

@@ -6,7 +6,7 @@ from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 
-from numba import jit, prange
+from numba import jit, prange, cuda
 
 from PIL import Image
 from scipy.signal import resample
@@ -28,8 +28,8 @@ def decode_cli(in_file, out_file, sample_rate, resample_factor, stride, stereo):
     decode(in_file, out_file, sample_rate, resample_factor, stride, stereo)
 
 def decode(in_file, out_file,
-           sample_rate = SAMPLE_RATE, stride = STRIDE,
-           stereo = False):
+           sample_rate = SAMPLE_RATE, resample_factor = 1,
+           stride = STRIDE, stereo = False):
     im = Image.open(in_file)
 
     if stereo:
@@ -46,17 +46,20 @@ def decode(in_file, out_file,
         audio_l = _decode(spectra_l, sample_rate * resample_factor, stride)
         audio_r = _decode(spectra_r, sample_rate * resample_factor, stride)
 
-        audio_l = resample(audio_l, len(audio_l) // resample_factor)
-        audio_r = resample(audio_r, len(audio_r) // resample_factor)
+        if resample_factor != 1:
+            audio_l = resample(audio_l, len(audio_l) // resample_factor)
+            audio_r = resample(audio_r, len(audio_r) // resample_factor)
+        
         audio = np.array([audio_l, audio_r]).T
 
     else:
         audio = _decode(image_data, sample_rate * resample_factor, stride)
-        audio = resample(audio, len(audio) // resample_factor)
+        if resample_factor != 1:
+            audio = resample(audio, len(audio) // resample_factor)
 
     wavfile.write(out_file, sample_rate, audio)
 
-@jit(nopython=True, parallel=True, nogil=True)
+@jit(nopython=True, parallel=True, nogil=True, fastmath=True)
 def _decode(spectra, sample_rate, stride):
 
     num_windows = spectra.shape[0]
@@ -76,10 +79,13 @@ def _decode(spectra, sample_rate, stride):
     phases[0] = 0
 
     for i_f in prange(len(freqs)):
-        term = np.zeros(num_samples)
-        
+        if np.sum(spectra[:,i_f]) == 0:
+            continue
+
         component = freqs[i_f] * T
         component = np.sin(2 * np.pi * component + phases[i_f])
+
+        term = np.zeros(num_samples)
 
         last_coeff = spectra[0][i_f]
         for i_w in prange(num_windows):
@@ -87,12 +93,12 @@ def _decode(spectra, sample_rate, stride):
             window = np.linspace(last_coeff, coeff, stride)
             wstart = i_w * stride
             wend = wstart + stride
-            term[wstart: wend] = np.multiply(window, component[wstart: wend])
+            term[wstart: wend] = window
             last_coeff = coeff
+        term = np.multiply(component, term)
         result += term
 
     return result
-   
 
 if __name__ == "__main__":
     decode_cli()
